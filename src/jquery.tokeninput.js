@@ -40,12 +40,12 @@ $.fn.tokenInput = function (url, options) {
         inputToken: "token-input-input-token"
     }, options.classes);
 
-    return this.each(function () {
-        var list = new $.TokenList(this, settings);
-    });
+		new $.TokenList(this, settings);
+		
+    return this;
 };
 
-$.TokenList = function (input, settings) {
+$.TokenList = function (hidden_inputs, settings) {
     //
     // Variables
     //
@@ -71,7 +71,7 @@ $.TokenList = function (input, settings) {
     };
 
     // Save the tokens
-    var saved_tokens = [];
+    var token_ids = [];
     
     // Keep track of the number of tokens in the list
     var token_count = 0;
@@ -179,24 +179,17 @@ $.TokenList = function (input, settings) {
             }
         });
 
-    // Keep a reference to the original input box
-    var hidden_input = $(input)
-                           .hide()
-                           .focus(function () {
-                               input_box.focus();
-                           })
-                           .blur(function () {
-                               input_box.blur();
-                           });
-
     // Keep a reference to the selected token and dropdown item
     var selected_token = null;
     var selected_dropdown_item = null;
 
+		var input_name = hidden_inputs.attr('name');
+		var last_input = hidden_inputs.filter(':last');
+
     // The list to store the token items in
     var token_list = $("<ul />")
         .addClass(settings.classes.tokenList)
-        .insertAfter(hidden_input)
+        .insertAfter(last_input)
         .click(function (event) {
             var li = get_element_from_event(event, "li");
             if(li && li.get(0) != input_token.get(0)) {
@@ -252,35 +245,38 @@ $.TokenList = function (input, settings) {
 
     // Pre-populate list if items exist
     function init_list () {
-        li_data = settings.prePopulate;
-        if(li_data && li_data.length) {
-            for(var i in li_data) {
-                var this_token = $("<li><p>"+li_data[i].name+"</p> </li>")
-                    .addClass(settings.classes.token)
-                    .insertBefore(input_token);
+        if(hidden_inputs.length > 0) {
+						hidden_inputs.each(function(){
+							var $elm = $(this);
+							if ($elm.val() != ''){
+								var this_token = $("<li><p>"+$elm.attr('data-name')+"</p> </li>")
+	                  .addClass(settings.classes.token)
+	                  .insertBefore(input_token)
+										.append($elm);
 
-                $("<span>x</span>")
-                    .addClass(settings.classes.tokenDelete)
-                    .appendTo(this_token)
-                    .click(function () {
-                        delete_token($(this).parent());
-                        return false;
-                    });
+	              $("<span>x</span>")
+	                  .addClass(settings.classes.tokenDelete)
+	                  .appendTo(this_token)
+	                  .click(function () {
+	                      delete_token($(this).parent());
+	                      return false;
+	                  });
 
-                $.data(this_token.get(0), "tokeninput", {"id": li_data[i].id, "name": li_data[i].name});
+	              $.data(this_token.get(0), "tokeninput", {"id": $elm.val(), "name": $elm.attr('data-name')});
 
-                // Clear input box and make sure it keeps focus
-                input_box
-                    .val("")
-                    .focus();
+	              // Clear input box and make sure it keeps focus
+	              input_box
+	                  .val("")
+	                  .focus();
 
-                // Don't show the help dropdown, they've got the idea
-                hide_dropdown();
+	              // Don't show the help dropdown, they've got the idea
+	              hide_dropdown();
 
-                // Save this token id
-                var id_string = li_data[i].id + ","
-                hidden_input.val(hidden_input.val() + id_string);
-            }
+								token_ids.push(''+$elm.val());
+
+								token_count++;
+							}
+						});
         }
     }
 
@@ -314,7 +310,8 @@ $.TokenList = function (input, settings) {
     function insert_token(id, value) {
       var this_token = $("<li><p>"+ value +"</p> </li>")
       .addClass(settings.classes.token)
-      .insertBefore(input_token);
+      .insertBefore(input_token)
+			.append("<input type='hidden' name='"+input_name+"' value='"+id+"' />");
 
       // The 'delete token' button
       $("<span>x</span>")
@@ -342,12 +339,10 @@ $.TokenList = function (input, settings) {
 
         // Don't show the help dropdown, they've got the idea
         hide_dropdown();
-
-        // Save this token id
-        var id_string = li_data.id + ","
-        hidden_input.val(hidden_input.val() + id_string);
         
         token_count++;
+				
+				token_ids.push(''+li_data.id);
         
         if(settings.tokenLimit != null && token_count >= settings.tokenLimit) {
             input_box.hide();
@@ -407,18 +402,8 @@ $.TokenList = function (input, settings) {
 
         // Show the input box and give it focus again
         input_box.focus();
-
-        // Delete this token's id from hidden input
-        var str = hidden_input.val()
-        var start = str.indexOf(token_data.id+",");
-        var end = str.indexOf(",", start) + 1;
-
-        if(end >= str.length) {
-            hidden_input.val(str.slice(0, start));
-        } else {
-            hidden_input.val(str.slice(0, start) + str.slice(end, str.length));
-        }
         
+				token_ids.splice($.inArray(''+token_data.id, token_ids), 1);
         token_count--;
         
         if (settings.tokenLimit != null) {
@@ -469,7 +454,7 @@ $.TokenList = function (input, settings) {
 
             for(var i in results) {
                 if (results.hasOwnProperty(i)) {
-                  if (  ! settings.removeAlreadySelected || jQuery.inArray(''+results[i].id, hidden_input.val().split(',')) == -1 ) {
+                  if (  ! settings.removeAlreadySelected || jQuery.inArray(''+results[i].id, token_ids) == -1 ) {
                     var this_li = $("<li>"+highlight_term(results[i].name, query)+"</li>")
                                       .appendTo(dropdown_ul);
 
