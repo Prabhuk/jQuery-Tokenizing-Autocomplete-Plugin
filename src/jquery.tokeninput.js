@@ -49,6 +49,8 @@ $.TokenList = function (hidden_inputs, settings) {
   //
   // Variables
   //
+  
+  var self = this;
 
   // Input box position "enum"
   var POSITION = {
@@ -221,7 +223,7 @@ $.TokenList = function (hidden_inputs, settings) {
       if(li){
         return false;
       }
-    });
+    }).data('tokenInput', this);
 
 
   // The list to store the dropdown items in
@@ -275,6 +277,15 @@ $.TokenList = function (hidden_inputs, settings) {
           token_count++;
         }
       });
+      
+      if(settings.tokenLimit != null && token_count >= settings.tokenLimit) {
+        input_box.hide();
+        hide_dropdown();
+      }
+      
+      hidden_inputs.each(function() {
+  			this.disabled = true;
+  		});
     }
   }
 
@@ -305,7 +316,7 @@ $.TokenList = function (hidden_inputs, settings) {
   }
 
   // Inner function to a token to the list
-  function insert_token(id, value) {
+  this.insert_token = function(id, value) {
     var this_token = $("<li><p>"+ value +"</p> </li>")
       .addClass(settings.classes.token)
       .insertBefore(input_token)
@@ -321,24 +332,25 @@ $.TokenList = function (hidden_inputs, settings) {
       });
 
     $.data(this_token.get(0), "tokeninput", {"id": id, "name": value});
+    
+    token_count++;
+    token_ids.push(''+id);
 
     return this_token;
-  }
+  };
 
   // Add a token to the token list based on user input
   function add_token (item) {
     var li_data = $.data(item.get(0), "tokeninput");
-    var this_token = insert_token(li_data.id, li_data.name);
+    var this_token = self.insert_token(li_data.id, li_data.name);
 
     // Clear input box and make sure it keeps focus
     input_box.val("").focus();
 
     // Don't show the help dropdown, they've got the idea
     hide_dropdown();
-
-    token_count++;
-
-    token_ids.push(''+li_data.id);
+    
+    $(document).trigger('change.tokenInput', [input_name, token_ids]);
 
     if(settings.tokenLimit != null && token_count >= settings.tokenLimit) {
       input_box.hide();
@@ -401,11 +413,22 @@ $.TokenList = function (hidden_inputs, settings) {
 
     token_ids.splice($.inArray(''+token_data.id, token_ids), 1);
     token_count--;
+    
+    $(document).trigger('change.tokenInput', [input_name, token_ids]);
 
     if (settings.tokenLimit != null) {
       input_box.show().val("").focus();
     }
   }
+  
+  this.clear_tokens = function(){
+    token_list.find('li.token-input-token').remove();
+    
+    token_ids = [];
+    token_count = 0;
+    
+    input_box.show().val("");
+  };
 
   // Hide and clear the results dropdown
   function hide_dropdown () {
@@ -513,11 +536,16 @@ $.TokenList = function (hidden_inputs, settings) {
 
   // Do the actual search
   function run_search(query) {
-    var cached_results = cache.get(query);
+    var cached_results = cache.get(query), url;
     if(cached_results) {
       populate_dropdown(query, cached_results);
     } else {
-      var queryStringDelimiter = settings.url.indexOf("?") < 0 ? "?" : "&";
+      if ($.isFunction(settings.url)){
+        url = settings.url(hidden_inputs);
+      } else {
+        url = settings.url;
+      }
+      var queryStringDelimiter = url.indexOf("?") < 0 ? "?" : "&";
       var callback = function(results) {
         if($.isFunction(settings.onResult)) {
           results = settings.onResult.call(this, results);
@@ -527,9 +555,9 @@ $.TokenList = function (hidden_inputs, settings) {
       };
 
       if(settings.method == "POST") {
-        $.post(settings.url + queryStringDelimiter + settings.queryParam + "=" + query, {}, callback, settings.contentType);
+        $.post(url + queryStringDelimiter + settings.queryParam + "=" + query, {}, callback, settings.contentType);
       } else {
-        $.get(settings.url + queryStringDelimiter + settings.queryParam + "=" + query, {}, callback, settings.contentType);
+        $.get(url + queryStringDelimiter + settings.queryParam + "=" + query, {}, callback, settings.contentType);
       }
     }
   }
