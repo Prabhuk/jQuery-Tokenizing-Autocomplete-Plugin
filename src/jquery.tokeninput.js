@@ -283,10 +283,6 @@ $.TokenList = function (hidden_inputs, settings) {
       if ((settings.tokenLimit != null && token_count >= settings.tokenLimit) || settings.disabled) {
         input_box.hide();
       }
-      
-      hidden_inputs.each(function() {
-  			this.disabled = true;
-  		});
     }
   }
 
