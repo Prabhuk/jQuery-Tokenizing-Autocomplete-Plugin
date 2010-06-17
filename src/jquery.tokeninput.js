@@ -24,7 +24,8 @@ $.fn.tokenInput = function (url, options) {
     removeAlreadySelected: false,
     contentType: "json",
     queryParam: "q",
-    onResult: null
+    onResult: null,
+    disabled: false
   }, options);
 
   settings.classes = $.extend({
@@ -192,7 +193,10 @@ $.TokenList = function (hidden_inputs, settings) {
   var token_list = $("<ul />")
     .addClass(settings.classes.tokenList)
     .insertAfter(last_input)
-    .click(function (event) {
+    .data('tokenInput', this);
+  
+  if (!settings.disabled){
+    token_list.click(function (event) {
       var li = get_element_from_event(event, "li");
       if(li && li.get(0) != input_token.get(0)) {
         toggle_select_token(li);
@@ -223,7 +227,8 @@ $.TokenList = function (hidden_inputs, settings) {
       if(li){
         return false;
       }
-    }).data('tokenInput', this);
+    });
+  }
 
 
   // The list to store the dropdown items in
@@ -255,32 +260,28 @@ $.TokenList = function (hidden_inputs, settings) {
             .addClass(settings.classes.token)
             .insertBefore(input_token)
             .append($elm);
-
-          $("<span>x</span>")
-            .addClass(settings.classes.tokenDelete)
-            .appendTo(this_token)
-            .click(function () {
-              delete_token($(this).parent());
-              return false;
-            });
+          
+          if (!settings.disabled){
+            $("<span>x</span>")
+              .addClass(settings.classes.tokenDelete)
+              .appendTo(this_token)
+              .click(function () {
+                delete_token($(this).parent());
+                return false;
+              });
+          }
 
           $.data(this_token.get(0), "tokeninput", {"id": $elm.val(), "name": $elm.attr('data-name')});
-
-          // Clear input box and make sure it keeps focus
-          input_box.val("").focus();
-
-          // Don't show the help dropdown, they've got the idea
-          hide_dropdown();
-
           token_ids.push(''+$elm.val());
-
           token_count++;
         }
       });
       
-      if(settings.tokenLimit != null && token_count >= settings.tokenLimit) {
+      input_box.val("");
+      hide_dropdown();
+      
+      if ((settings.tokenLimit != null && token_count >= settings.tokenLimit) || settings.disabled) {
         input_box.hide();
-        hide_dropdown();
       }
       
       hidden_inputs.each(function() {
