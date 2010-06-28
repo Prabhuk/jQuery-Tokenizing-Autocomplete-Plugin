@@ -12,7 +12,6 @@
 
 $.fn.tokenInput = function (url, options) {
   var settings = $.extend({
-    url: url,
     hintText: "Type in a search term",
     noResultsText: "No results",
     searchingText: "Searching...",
@@ -24,9 +23,14 @@ $.fn.tokenInput = function (url, options) {
     removeAlreadySelected: false,
     contentType: "json",
     queryParam: "q",
-    onResult: null,
-    disabled: false
+    onResult: null
   }, options);
+
+  if ($.isFunction(url)){
+    settings['url']= url(this);
+  } else {
+    settings.url = url;
+  }
 
   settings.classes = $.extend({
     tokenList: "token-input-list",
@@ -84,13 +88,18 @@ $.TokenList = function (hidden_inputs, settings) {
 
   // Keep track of the timeout
   var timeout;
+  
+  var input_disabled = hidden_inputs.get(0) ? hidden_inputs.get(0).disabled : false;
 
   // Create a new text input an attach keyup events
+  
   var input_box = $("<input type=\"text\"  autocomplete=\"off\">")
     .css({
       outline: "none"
-    })
-    .focus(function () {
+    });
+  
+  if (!input_disabled){
+    input_box.focus(function () {
       if (settings.tokenLimit == null || settings.tokenLimit != token_count) {
         show_dropdown_hint();
       }
@@ -181,6 +190,7 @@ $.TokenList = function (hidden_inputs, settings) {
         break;
       }
     });
+  }
 
   // Keep a reference to the selected token and dropdown item
   var selected_token = null;
@@ -195,7 +205,7 @@ $.TokenList = function (hidden_inputs, settings) {
     .insertAfter(last_input)
     .data('tokenInput', this);
   
-  if (!settings.disabled){
+  if (!input_disabled){
     token_list.click(function (event) {
       var li = get_element_from_event(event, "li");
       if(li && li.get(0) != input_token.get(0)) {
@@ -261,7 +271,7 @@ $.TokenList = function (hidden_inputs, settings) {
             .insertBefore(input_token)
             .append($elm);
           
-          if (!settings.disabled){
+          if (!input_disabled){
             $("<span>x</span>")
               .addClass(settings.classes.tokenDelete)
               .appendTo(this_token)
@@ -280,9 +290,13 @@ $.TokenList = function (hidden_inputs, settings) {
       input_box.val("");
       hide_dropdown();
       
-      if ((settings.tokenLimit != null && token_count >= settings.tokenLimit) || settings.disabled) {
+      if ((settings.tokenLimit != null && token_count >= settings.tokenLimit)) {
         input_box.hide();
       }
+    }
+    
+    if (input_disabled){
+      input_box.remove();
     }
   }
 
@@ -537,12 +551,7 @@ $.TokenList = function (hidden_inputs, settings) {
     if(cached_results) {
       populate_dropdown(query, cached_results);
     } else {
-      if ($.isFunction(settings.url)){
-        url = settings.url(hidden_inputs);
-      } else {
-        url = settings.url;
-      }
-      var queryStringDelimiter = url.indexOf("?") < 0 ? "?" : "&";
+      var queryStringDelimiter = settings.url.indexOf("?") < 0 ? "?" : "&";
       var callback = function(results) {
         if($.isFunction(settings.onResult)) {
           results = settings.onResult.call(this, results);
@@ -552,9 +561,9 @@ $.TokenList = function (hidden_inputs, settings) {
       };
 
       if(settings.method == "POST") {
-        $.post(url + queryStringDelimiter + settings.queryParam + "=" + query, {}, callback, settings.contentType);
+        $.post(settings.url + queryStringDelimiter + settings.queryParam + "=" + query, {}, callback, settings.contentType);
       } else {
-        $.get(url + queryStringDelimiter + settings.queryParam + "=" + query, {}, callback, settings.contentType);
+        $.get(settings.url + queryStringDelimiter + settings.queryParam + "=" + query, {}, callback, settings.contentType);
       }
     }
   }
