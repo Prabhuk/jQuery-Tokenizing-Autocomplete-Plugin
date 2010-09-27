@@ -23,14 +23,11 @@ $.fn.tokenInput = function (url, options) {
     removeAlreadySelected: false,
     contentType: "json",
     queryParam: "q",
-    onResult: null
+    onResult: null,
+    useCache: true
   }, options);
 
-  if ($.isFunction(url)){
-    settings['url']= url(this);
-  } else {
-    settings.url = url;
-  }
+  settings.url = url;
 
   settings.classes = $.extend({
     tokenList: "token-input-list",
@@ -286,6 +283,10 @@ $.TokenList = function (hidden_inputs, settings) {
           token_count++;
         }
       });
+      
+      if ((hidden_inputs.length == 1) && (hidden_inputs.val() == '')){
+        hidden_inputs.disable();
+      }
       
       input_box.val("");
       hide_dropdown();
@@ -547,11 +548,10 @@ $.TokenList = function (hidden_inputs, settings) {
 
   // Do the actual search
   function run_search(query) {
-    var cached_results = cache.get(query), url;
-    if(cached_results) {
+    var cached_results = cache.get(query), url, queryStringDelimiter;
+    if(cached_results && settings.useCache) {
       populate_dropdown(query, cached_results);
     } else {
-      var queryStringDelimiter = settings.url.indexOf("?") < 0 ? "?" : "&";
       var callback = function(results) {
         if($.isFunction(settings.onResult)) {
           results = settings.onResult.call(this, results);
@@ -559,11 +559,18 @@ $.TokenList = function (hidden_inputs, settings) {
         cache.add(query, settings.jsonContainer ? results[settings.jsonContainer] : results);
         populate_dropdown(query, settings.jsonContainer ? results[settings.jsonContainer] : results);
       };
-
-      if(settings.method == "POST") {
-        $.post(settings.url + queryStringDelimiter + settings.queryParam + "=" + query, {}, callback, settings.contentType);
+      
+      if ($.isFunction(settings.url)){
+        url = settings.url(hidden_inputs);
       } else {
-        $.get(settings.url + queryStringDelimiter + settings.queryParam + "=" + query, {}, callback, settings.contentType);
+        url = settings.url;
+      }
+      
+      queryStringDelimiter = url.indexOf("?") < 0 ? "?" : "&";
+      if(settings.method == "POST") {
+        $.post(url + queryStringDelimiter + settings.queryParam + "=" + query, {}, callback, settings.contentType);
+      } else {
+        $.get(url + queryStringDelimiter + settings.queryParam + "=" + query, {}, callback, settings.contentType);
       }
     }
   }
